@@ -21,6 +21,7 @@ SOURCEDIR="${radarr_moviefile_sourcefolder}"
 
 TORRENT_DIR=$(basename "$SOURCEDIR")
 DEST_DIR=$(basename "$DEST")
+TDEST="$DEST/$TORRENT_DIR"
 
 DT=$(date '+%Y-%m-%d %H:%M:%S')
 LOG=$(dirname $0)
@@ -41,7 +42,6 @@ if [ -e "$STORED_FILE" ]; then
     
     #get torrent folder name if it has one
     if [ "TORRENT_DIR" != "$DEST_DIR" ]; then
-        TDEST="$DEST/$TORRENT_DIR"
         printf '%s | INFO  | Torrent downloads into directory, not only a file: /%s\n' "$DT" "$TORRENT_DIR" >> "$LOG"
         printf '%s | INFO  | Torrent must be moved accordingly! Creating directory...\n' "$DT" >> "$LOG"
         
@@ -49,7 +49,7 @@ if [ -e "$STORED_FILE" ]; then
         if [ $? -eq 0 ]; then
             printf '%s | INFO  | Directory created: %s\n' "$DT" "$TDEST">> "$LOG"
         else
-            printf '%s | ERROR  | mv could not complete! Check Radarr log for more info\n' "$DT" >> "$LOG"
+            printf '%s | ERROR | mv could not complete! Check Radarr log for more info\n' "$DT" >> "$LOG"
         fi
 
         mv "$STORED_FILE" "$TDEST"
@@ -62,7 +62,7 @@ if [ -e "$STORED_FILE" ]; then
     
     #REMOTE -t TorrentID --find /New/Torrent/Data/Location
     $REMOTE -t "$TORRENT_ID" --find "$DEST"
-    printf '%s | INFO  | Torrent ID: %s, data now in: %s\n' "$DT" "$TORRENT_ID" "$STORED_FILE" >> "$LOG"
+    printf '%s | INFO  | Torrent ID: %s, data now in: %s\n' "$DT" "$TORRENT_ID" "$DEST" >> "$LOG"
 
     if [ -e "$ORIGIN_FILE" ]; then
         rm -f "$ORIGIN_FILE"
@@ -70,7 +70,20 @@ if [ -e "$STORED_FILE" ]; then
 
         if [ "TORRENT_DIR" != "$DEST_DIR" ]; then
             rm -d "$SOURCEDIR"
-            printf '%s | INFO  | Cleaning up empty directories %s\n' "$DT" "$SOURCEDIR" >> "$LOG"
+            if [ $? -eq 0 ]; then
+                printf '%s | INFO  | Cleaning up empty directories %s\n' "$DT" "$SOURCEDIR" >> "$LOG"
+            else
+                printf '%s | WARN  | Failed to remove empty directory, checking to see if we have to move additional files! Check Radarr log for more info\n' "$DT" >> "$LOG"
+                cp -r -u  "$SOURCEDIR"/* "$TDEST"
+                if [ $? -eq 0 ]; then
+                    printf '%s | INFO  | Moved additional files to: %s\n' "$DT" "$TDEST" >> "$LOG"
+                    rm -rf "$SOURCEDIR"
+                    printf '%s | INFO  | Deleted original additional files %s\n' "$DT" "$TDEST" >> "$LOG"
+                else
+                    printf '%s | ERROR | Could not move additional files. Check Radarr log for more info\n' "$DT" >> "$LOG"
+                fi
+            fi
+            
         fi
         
     else
