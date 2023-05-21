@@ -5,18 +5,30 @@
 # updates the location of the seeded file for Transmission
 # and finally removes the original downloaded file
 #
-# Will put "errors" into Radarr event log, this isnt always
-# going to be an actual error, just an easy way to display
-# what the script is doing in some cases it will move files 
-# radarr expected to find itself and it will give you warnings
 
 #VARIABLES
-REMOTE="transmission-remote -n USER:PASSWD" #Change USER and PASSWD, or remove if not required
+REMOTE="transmission-remote -n USER:PASSWD" #Change USER and PASSWD
 DLDIR="radarr" #Name of the folder radarr downlaods all torrents into, can be customised with 'Category' option in download client options
+
+ENABLE_RADARR_REFRESH=0 #set 1 if you want radarr to refresh the movie after moving a download to scan and update directory in radarr, important for things like bazarr
+ENABLE_PLEX_TRASH=0  #set 1 if you want the script to clear plex trash after moving files, some setups might end up with trash files and this just helps keep it tidy
+
+PLEXTOKEN="PLEX TOKEN" #add plex token if ENABLE_PLEX_TRASH=1
+LIBRARY="LIBRARY ID"  #sectionid/key of movie library on plex ( you can use this script to find library ids https://github.com/Cr4zyy/Sonarr-Transmission-Fixer/blob/master/plex_library_key.sh)
+APIKEY="RADARR API KEY" #Only needed if ENABLE_RADARR_REFRESH=1 Radarr API Key, found in 'Settings > General'
+
+#IPS AND PORTS change as needed
+PLEX_IP="127.0.0.1"
+PLEX_PORT="32400"
+RADARR_IP="127.0.0.1"
+RADARR_PORT="7878"
+
+#DONT CHANGE BELOW THIS
 
 DEST="${radarr_movie_path}"
 SPATH="${radarr_moviefile_relativepath}"
 TITLE="${radarr_movie_title}"
+MOVIE_ID="${radarr_movie_id}"
 TORRENT_NAME="${radarr_moviefile_scenename}"
 TORRENT_ID="${radarr_download_id}"
 STORED_FILE="${radarr_moviefile_path}"
@@ -41,14 +53,13 @@ if [[ "$EVENTTYPE" == "Test" ]]; then
     exit 0;
 else
     printf '%s | INFO  | Radarr Event - %s\n' "$DT" "$EVENTTYPE" >> "$LOG"
-    printferr "Processing..."
+    printferr "Processing $TITLE | ${radarr_movie_year}"
 fi
 
 if [ -e "$STORED_FILE" ]; then
     printf '%s | INFO  | Processing new download of: %s\n' "$DT" "$TITLE" >> "$LOG"
     printf '%s | INFO  | Torrent ID: %s | Torrent Name: %s\n' "$DT" "$TORRENT_ID" "$TORRENT_NAME" >> "$LOG"
     printf '%s | INFO  | Movie file detected as: %s\n' "$DT" "$SPATH" >> "$LOG"
-
     
     #get torrent folder name if it has one
     if [ "$TORRENT_DIR" != "$DLDIR" ]; then
@@ -95,10 +106,24 @@ if [ -e "$STORED_FILE" ]; then
                     printf '%s | INFO  | Deleted original additional files %s\n' "$DT" "$TDEST" >> "$LOG"
                     #We moved torrent folders, verify torrent to make sure everything is ok!
                     $REMOTE -t "$TORRENT_ID" -v
+                    
+                    if [ $ENABLE_PLEX_TRASH -eq 1 ]; then
+                        printferr "| INFO | Telling Plex to clean up trash"
+                        printf '%s | INFO  | Plex trash cleanup\n' "$DT" >> "$LOG"
+                        curl -s -X PUT -H "X-Plex-Token: $PLEXTOKEN" http://$PLEX_IP:$PLEX_PORT/library/sections/$LIBRARY/emptyTrash
+                    fi
+                    
+                    if [ $ENABLE_RADARR_REFRESH -eq 1 ]; then
+                        printferr "| INFO | Telling Radarr to rescan $MOVIE_ID files."
+                        printf '%s | INFO  | Radarr movie rescan\n' "$DT" >> "$LOG"
+                        curl -s -H "Content-Type: application/json" -H "X-Api-Key: $APIKEY" -d '{"name":"RefreshMovie","movieIds":['$MOVIE_ID']}' http://$RADARR_IP:$RADARR_PORT/api/v3/command > /dev/null
+                    fi
                 else
                     printferr "| ERROR | Could not move additional files."
                     printferr "$COPYFILES"
+                    printferr "Completed Processing"
                     printf '%s | ERROR | Could not move additional files.\n' "$DT" >> "$LOG"
+                    printf '%s | INFO  | Completed Processing.\n' "$DT" >> "$LOG"
                 fi
             fi
             
