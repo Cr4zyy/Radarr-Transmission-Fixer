@@ -10,6 +10,8 @@ Radarr Transmission Fixer
 * Ideally meant to run with Radarr copying files, not hardlinking
 * While Radarr can handle removing of completed downloads, the script does it itself.
 * BASH script
+* Optionally refresh season within Radarr to update not captured file moves
+* Optionally empty plex trash in Movie library, use plex_library_key.sh to find the library number
 
 Radarr will provide all the required directory and file details to the script, which will then set the seeding location of a torrent to where you store the data and remove the origin file from the default Transmission downlaod directory, Saving you from having two files.
 
