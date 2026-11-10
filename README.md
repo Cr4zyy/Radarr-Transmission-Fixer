@@ -2,6 +2,8 @@ Radarr Transmission Fixer
 ======
 **Radarr Transmission Fixer** allows you to update the seeded data location automatically of a torrent in Transmission, downloaded via Radarr.
 
+Use RadarrV7TransmissionFixer.sh for Radarr V7, if updating to V7 check your Client config (in radarr). Category and Download directory now both should be set, previously only category was needed and it created the directory.
+
 ## Setup
 
 * Change the USER:PASSWD to your USERNAME and PASSWORD for your Transmission. If you don't have a password you can remove the '-n USER:PASSWD'
